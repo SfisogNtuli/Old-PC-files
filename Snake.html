@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ultimate Snake Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(to right, #2c3e50, #34495e);
+      color: #ecf0f1;
+      overflow: hidden;
+    }
+    header {
+      text-align: center;
+      padding: 10px;
+      background-color: #1abc9c;
+      font-size: 1.4rem;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    #hud {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px;
+      font-size: 1rem;
+      background-color: #16a085;
+    }
+    #gameCanvas {
+      flex: 1;
+      margin: auto;
+      background-color: #2c3e50;
+      border-radius: 10px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+    footer {
+      text-align: center;
+      padding: 15px;
+      background-color: #1abc9c;
+    }
+    button {
+      padding: 8px 14px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      background-color: #e67e22;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #d35400;
+    }
+    #overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #34495e;
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+    input {
+      padding: 10px;
+      width: 200px;
+      margin: 10px auto;
+      border-radius: 5px;
+      border: none;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header> 🐍 Snake Game</header>
+  <div id="hud">
+    <span id="playerName">👤 Welcome!</span>
+    <span id="score">🍎 Score: 0</span>
+    <span id="status">⏱ Time: 0s</span>
+  </div>
+  <canvas id="gameCanvas" width="600" height="600"></canvas>
+  <footer>
+    <button onclick="togglePause()">⏸ Pause / Resume</button>
+    <button onclick="replayGame()">🔁 Replay</button>
+  </footer>
+
+  <div id="overlay">
+    <h2>Enter Your Name</h2>
+    <input id="nameInput" placeholder="Player 1" />
+    <br>
+    <button onclick="startGame()">▶ Start</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const gridSize = 30;
+    const tileSize = canvas.width / gridSize;
+
+    let snake = [];
+    let direction = "Right";
+    let alive = false;
+    let paused = false;
+    let timer = 0;
+    let score = 0;
+    let playerName = "";
+
+    let food = spawnItem();
+
+    function spawnItem() {
+      return {
+        x: Math.floor(Math.random() * gridSize),
+        y: Math.floor(Math.random() * gridSize)
+      };
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowUp" && direction !== "Down") direction = "Up";
+      else if (e.key === "ArrowDown" && direction !== "Up") direction = "Down";
+      else if (e.key === "ArrowLeft" && direction !== "Right") direction = "Left";
+      else if (e.key === "ArrowRight" && direction !== "Left") direction = "Right";
+    });
+
+    function startGame(skipPrompt = false) {
+      if (!skipPrompt) {
+        playerName = document.getElementById("nameInput").value || "Player";
+        document.getElementById("playerName").textContent = `👤 ${playerName}`;
+        document.getElementById("overlay").style.display = "none";
+      }
+
+      snake = [{ x: 5, y: 5 }];
+      direction = "Right";
+      alive = true;
+      paused = false;
+      timer = 0;
+      score = 0;
+      food = spawnItem();
+
+      document.getElementById("score").textContent = `🍎 Score: 0`;
+    }
+
+    function replayGame() {
+      document.getElementById("overlay").innerHTML = `
+        <h2>Get Ready, ${playerName}!</h2>
+        <p>Restarting in <span id="countdown">3</span>...</p>
+      `;
+      document.getElementById("overlay").style.display = "block";
+
+      let count = 3;
+      const countdown = setInterval(() => {
+        count--;
+        document.getElementById("countdown").textContent = count;
+        if (count === 0) {
+          clearInterval(countdown);
+          document.getElementById("overlay").style.display = "none";
+          startGame(true);
+        }
+      }, 1000);
+    }
+
+    function togglePause() {
+      paused = !paused;
+    }
+
+    function moveSnake() {
+      if (!alive || paused) return;
+
+      const head = { ...snake[0] };
+      if (direction === "Up") head.y = (head.y + gridSize - 1) % gridSize;
+      else if (direction === "Down") head.y = (head.y + 1) % gridSize;
+      else if (direction === "Left") head.x = (head.x + gridSize - 1) % gridSize;
+      else if (direction === "Right") head.x = (head.x + 1) % gridSize;
+
+      if (snake.some(s => s.x === head.x && s.y === head.y)) {
+        alive = false;
+        showGameOver();
+        return;
+      }
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        food = spawnItem();
+      } else {
+        snake.pop();
+      }
+    }
+
+    function drawSnake() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw food
+      ctx.fillStyle = "#2ecc71";
+      ctx.beginPath();
+      ctx.arc(food.x * tileSize + tileSize / 2, food.y * tileSize + tileSize / 2, tileSize / 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw snake
+      snake.forEach((seg, i) => {
+        ctx.fillStyle = i % 2 === 0 ? "#e74c3c" : "#ecf0f1";
+        ctx.fillRect(seg.x * tileSize, seg.y * tileSize, tileSize, tileSize);
+      });
+
+      document.getElementById("score").textContent = `🍎 Score: ${score}`;
+      document.getElementById("status").textContent = `⏱ Time: ${(timer / 10).toFixed(1)}s`;
+    }
+
+    function showGameOver() {
+      document.getElementById("overlay").innerHTML = `
+        <h2>💥 Game Over!</h2>
+        <p>${playerName}, your final score is ${score}.</p>
+        <button onclick="replayGame()">🔁 Play Again</button>
+      `;
+      document.getElementById("overlay").style.display = "block";
+    }
+
+    setInterval(() => {
+      if (alive && !paused) {
+        timer++;
+        moveSnake();
+        drawSnake();
+      }
+    }, 100);
+  </script>
+</body>
+</html>
